@@ -102,7 +102,27 @@ func (t Task) save() {
 		if err != nil {
 			log.Fatalf("Marshaling data failed %v", err)
 		}
-		os.WriteFile(jsonPath, bytes, 0644)
+		if err = os.WriteFile(jsonPath, bytes, 0644); err != nil {
+			log.Fatalf("Saving data failed %v", err)
+		}
+		return
+	}
+	data, err := os.ReadFile(jsonPath)
+	if err != nil {
+		log.Fatal("Loading JSON file failed")
+	}
+	var tasks map[int]Task
+	err = json.Unmarshal(data, &tasks)
+	if err != nil {
+		log.Fatal("Parsing JSON data failed", err)
+	}
+	tasks[t.Id] = t
+	bytes, err := json.Marshal(tasks)
+	if err != nil {
+		log.Fatalf("Marshaling data failed %v", err)
+	}
+	if err = os.WriteFile(jsonPath, bytes, 0644); err != nil {
+		log.Fatalf("Saving data failed %v", err)
 	}
 }
 
@@ -123,7 +143,7 @@ func getTaskId() int {
 	if err != nil {
 		log.Fatal("Loading JSON file failed")
 	}
-	var tasks []Task
+	var tasks map[int]Task
 	err = json.Unmarshal(data, &tasks)
 	if err != nil {
 		log.Fatal("Parsing JSON data failed", err)
