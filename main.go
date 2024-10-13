@@ -2,9 +2,12 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 )
 
@@ -61,6 +64,10 @@ func getCWD() string {
 }
 
 func main() {
+	if len(os.Args) < 2 {
+		fmt.Println("Please enter a command")
+		return
+	}
 	command := os.Args[1]
 	switch command {
 	case Add.String():
@@ -68,6 +75,21 @@ func main() {
 		log.Println("Add command received")
 		taskId := addTask(desc)
 		log.Printf("Task added successfully (ID:%d)", taskId)
+	case Update.String():
+		ids := os.Args[2]
+		newDesc := os.Args[3]
+		id, err := strconv.Atoi(ids)
+		if err != nil {
+			fmt.Println("Invalid ID")
+			return
+		}
+		err = updateTask(id, newDesc)
+		if err != nil {
+			fmt.Println(err)
+		}
+	default:
+		fmt.Println("Invalid command")
+		return
 	}
 }
 
@@ -107,23 +129,12 @@ func (t Task) save() {
 		}
 		return
 	}
-	data, err := os.ReadFile(jsonPath)
+	tasks, err := loadData(jsonPath)
 	if err != nil {
-		log.Fatal("Loading JSON file failed")
-	}
-	var tasks map[int]Task
-	err = json.Unmarshal(data, &tasks)
-	if err != nil {
-		log.Fatal("Parsing JSON data failed", err)
+		log.Fatalf("Loading data failed %v", err)
 	}
 	tasks[t.Id] = t
-	bytes, err := json.Marshal(tasks)
-	if err != nil {
-		log.Fatalf("Marshaling data failed %v", err)
-	}
-	if err = os.WriteFile(jsonPath, bytes, 0644); err != nil {
-		log.Fatalf("Saving data failed %v", err)
-	}
+	err = updateData(jsonPath, tasks)
 }
 
 func isDataExist() (bool, string) {
@@ -149,4 +160,51 @@ func getTaskId() int {
 		log.Fatal("Parsing JSON data failed", err)
 	}
 	return len(tasks) + 1
+}
+
+func loadData(jsonPath string) (map[int]Task, error) {
+	data, err := os.ReadFile(jsonPath)
+	if err != nil {
+		return nil, err
+	}
+	var tasks map[int]Task
+	err = json.Unmarshal(data, &tasks)
+	if err != nil {
+		return nil, err
+	}
+	return tasks, nil
+}
+
+func updateData(jsonPath string, tasks map[int]Task) error {
+	bytes, err := json.Marshal(tasks)
+	if err != nil {
+		return fmt.Errorf("marshaling data failed %v", err)
+	}
+	if err = os.WriteFile(jsonPath, bytes, 0644); err != nil {
+		return fmt.Errorf("saving data failed %v", err)
+	}
+	return nil
+}
+
+func updateTask(id int, desc string) error {
+	ok, jsonPath := isDataExist()
+	if !ok {
+		return errors.New("no tasks created yet")
+	}
+	tasks, err := loadData(jsonPath)
+	if err != nil {
+		return err
+	}
+	task, ok := tasks[id]
+	if !ok {
+		return errors.New("task not found")
+	}
+
+	task.Description = desc
+	tasks[id] = task
+	err = updateData(jsonPath, tasks)
+	if err != nil {
+		return fmt.Errorf("updating data failed %v", err)
+	}
+	return nil
 }
