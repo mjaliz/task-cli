@@ -76,9 +76,9 @@ func main() {
 		taskId := addTask(desc)
 		log.Printf("Task added successfully (ID:%d)", taskId)
 	case Update.String():
-		ids := os.Args[2]
+		sid := os.Args[2]
 		newDesc := os.Args[3]
-		id, err := strconv.Atoi(ids)
+		id, err := strconv.Atoi(sid)
 		if err != nil {
 			fmt.Println("Invalid ID")
 			return
@@ -86,7 +86,21 @@ func main() {
 		err = updateTask(id, newDesc)
 		if err != nil {
 			fmt.Println(err)
+			return
 		}
+	case Delete.String():
+		sid := os.Args[2]
+		id, err := strconv.Atoi(sid)
+		if err != nil {
+			fmt.Println("Invalid ID")
+			return
+		}
+		err = deleteTask(id)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+
 	default:
 		fmt.Println("Invalid command")
 		return
@@ -205,6 +219,27 @@ func updateTask(id int, desc string) error {
 	err = updateData(jsonPath, tasks)
 	if err != nil {
 		return fmt.Errorf("updating data failed %v", err)
+	}
+	return nil
+}
+
+func deleteTask(id int) error {
+	ok, jsonPath := isDataExist()
+	if !ok {
+		return errors.New("no tasks created yet")
+	}
+	tasks, err := loadData(jsonPath)
+	if err != nil {
+		return err
+	}
+	_, ok = tasks[id]
+	if !ok {
+		return errors.New("task not found")
+	}
+	delete(tasks, id)
+	err = updateData(jsonPath, tasks)
+	if err != nil {
+		return err
 	}
 	return nil
 }
